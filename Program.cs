@@ -1,429 +1,494 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
-using System.Runtime.Remoting.Messaging;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Xml;
+using static PoolTrackingSystem.Program;
 
-// 111;Молоток;15C;Технология;200;Годен;11.02.2023 //
-public class Device
+namespace PoolTrackingSystem
 {
-    public int Key { get; set; }
-    public string Name { get; set; }
-    public string InventoryNum { get; set; }
-    public string Profile { get; set; }
-    public double Cost { get; set; }
-    public string Status { get; set; }
-    public DateTime DateOfInsp { get; set; }
-    public Device(int key, string name, string inventorynum, string profile, double cost, string status, DateTime dateofinsp)
-    { Key = key; Name = name; InventoryNum = inventorynum; Profile = profile; Cost = cost; Status = status; DateOfInsp = dateofinsp; }
-}
-// 111;Школа;Технология;14.05.2023 //
-public class Subdivision
-{
-    public int Key { get; set; }
-    public string Name { get; set; }
-    public string Profile { get; set; }
-    public DateTime CurrentDate { get; set; }
-    public List<string> Devices { get; set; }
-    public Subdivision(int key, string name, string profile, DateTime currentdate, List<string> devices)
-    { Key = key; Name = name; Profile = profile; CurrentDate = currentdate; Devices = devices; }
-}
-// 111;Школа;Молоток;15С;16.05.2023;Списан;12.04.2023;50 //
-public class Muster
-{
-    public int Key { get; set; }
-    public string Organization { get; set; }
-    public string Device { get; set; }
-    public string InventoryNum { get; set; }
-    public DateTime NextDate { get; set; }
-    public string Result { get; set; }
-    public DateTime DateOfInsp { get; set; }
-    public double CostOfInsp { get; set; }
-    public Muster(int key, string organization, string device, string inventorynum, DateTime nextdate, string result, DateTime dateofinsp, double costofinsp)
-    { Key = key; Organization = organization; Device = device; InventoryNum = inventorynum; NextDate = nextdate; Result = result; DateOfInsp = dateofinsp; CostOfInsp = costofinsp; }
-}
-internal class Program
-{
-    static void Main(string[] args)
+    class Pool
     {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Address { get; set; }
+        public string Type { get; set; } //sport, medical, combined
+        public List<Trainer> Trainers { get; set; }
+        public List<Group> Groups { get; set; }
+        public List<Subscription> Subscriptions { get; set; }
 
-        int m;
-
-        StreamReader FileIn = new StreamReader("приборы.txt", Encoding.UTF8);
-
-        string str;
-
-        while ((str = FileIn.ReadLine()) != null) // Пока не конец файла
+        public Pool(int id, string name,
+                    string address, string type)
         {
-            m = 7;
-            string[] ms = new string[m]; // m - количество полей в классе
+            Trainers = new List<Trainer>();
+            Groups = new List<Group>();
+            Subscriptions = new List<Subscription>();
 
-            ms = str.Split(';'); // Разбивание на массив строк
-
-            // Добавление строки через конструктор с параметрами
-
-            devices.Add(new Device(int.Parse(ms[0]), ms[1], ms[2], ms[3], double.Parse(ms[4]), ms[5], DateTime.Parse(ms[6])));
-
+            Id = id; Name = name;
+            Address = address;
+            Type = type;
         }
-        FileIn.Close();
 
-        FileIn = new StreamReader("подразделения.txt", Encoding.UTF8);
-
-        while ((str = FileIn.ReadLine()) != null) // Пока не конец файла
+        public void AddTrainer(Trainer trainer1)
         {
-            m = 4;
-            string[] ms = new string[m]; // m - количество полей в классе
-
-            ms = str.Split(';'); // Разбивание на массив строк
-
-            // Добавление строки через конструктор с параметрами
-
-            subdivisions.Add(new Subdivision(int.Parse(ms[0]), ms[1], ms[2], DateTime.Parse(ms[3]), ms[4].Split(',').ToList()));
-        }// Преобразование учитывает описание класса
-        FileIn.Close();
-
-        FileIn = new StreamReader("поверки.txt", Encoding.UTF8);
-
-        while ((str = FileIn.ReadLine()) != null) // Пока не конец файла
-        {
-            m = 8;
-            string[] ms = new string[m]; // m - количество полей в классе
-
-            ms = str.Split(';'); // Разбивание на массив строк
-
-            // Добавление строки через конструктор с параметрами
-
-            musters.Add(new Muster(int.Parse(ms[0]), ms[1], ms[2], ms[3], DateTime.Parse(ms[4]), ms[5], DateTime.Parse(ms[6]), double.Parse(ms[7])));
-
-        }// Преобразование учитывает описание класса
-        FileIn.Close();
-
-        //////////////////////////////////////////////////
-
-        char c;
-
-        while (true)
-        {
-            Console.Clear();
-            Console.WriteLine("\tВыберите № задачи\n");
-
-            Console.WriteLine("1 - Поменять статус прибора.\n" +
-                                "2 - Осуществить поверку.\n" +
-                                "3 - Добавить новый прибор в базу данных.\n" +
-                                "4 - Удалить прибор из базы данных.\n" +
-                                "5 - Добавление нового подразделения в базу данных.\n" +
-                                "6 - Удаление подразделения из базы данных.\n" +
-                                "7 - Просмотр списка приборов, находящихся на консервации.\n" +
-                                "8 - Просмотр списка списанных приборов.\n" +
-                                "\n0 - Выход из программы");
-
-            c = Console.ReadKey(true).KeyChar;
-
-            switch (c)
+            Trainers.Add(trainer1);
+            var trainer = Trainers.Single(x => x == trainer1);
+            trainer.Pools.Add(this);
+            foreach (var group in Groups)
             {
-                case '1':
-                    Console.Clear();
-                    Console.WriteLine("Введите ключ прибора, статус которого нужно поменять:");
-                    EditStatus(int.Parse(Console.ReadLine()));
-                    Console.ReadKey();
-                    continue;
-                case '2':
-                    Console.Clear();
-                    Muster();
-                    Console.WriteLine("Поверка осуществлена. Нажмите любую клавишу, чтобы продолжить...");
-                    Console.ReadKey();
-                    continue;
-                case '3':
-                    Console.Clear();
-                    AddDevice();
-                    Console.WriteLine("Прибор добавлен. Нажмите любую клавишу, чтобы продолжить...");
-                    Console.ReadKey();
-                    continue;
-                case '4':
-                    Console.Clear();
-                    Console.WriteLine("Введите ключ прибора, который хотите удалить: ");
-                    DeleteDevice(int.Parse(Console.ReadLine()));
-                    Console.WriteLine("Прибор удалён. Нажмите любую клавишу, чтобы продолжить...");
-                    Console.ReadKey();
-                    continue;
-                case '5':
-                    Console.Clear();
-                    AddSub();
-                    Console.WriteLine("Подразделение добавлено. Нажмите любую клавишу, чтобы продолжить...");
-                    Console.ReadKey();
-                    continue;
-                case '6':
-                    Console.Clear();
-                    Console.WriteLine("Введите ключ подразделения, которое хотите удалить: ");
-                    DeleteSub(int.Parse(Console.ReadLine()));
-                    Console.WriteLine("Подразделение удалено. Нажмите любую клавишу, чтобы продолжить...");
-                    Console.ReadKey();
-                    continue;
-                case '7':
-                    Console.Clear();
-                    var devicesOnCons = devices.Where(device => device.Status == "На консервации");
-                    var organizationOfThisDevice = subdivisions.Where(subdivision => subdivision.Devices.Any(device => devices.Any(d => d.Name == device)));
-                    foreach (var device in devicesOnCons)
-                    {
-                        Console.WriteLine($"{device.Name}\n");
-                        //Console.WriteLine($"{organizationOfThisDevice}\n");
-                    }
-                    Console.WriteLine("Список выведен. Нажмите любую клавишу, чтобы продолжить...");
-                    Console.ReadKey();
-                    continue;
-                case '8':
-                    Console.Clear();
+                if (group.Trainer == null)
+                {
+                    group.Trainer = trainer;
+                    trainer.Groups.Add(group);
+                    break;
+                }
+                if (!trainer.Groups.Contains(group)) trainer.Groups.Add(group);
+                //Console.WriteLine($"{group.Id} - {group.Trainer.Name}");
+            }
+        }
 
-                    Console.ReadKey();
-                    continue;
-                case '0':
-                    Console.WriteLine("Вы уверены, что хотите завершить работу программы?\nНажмите любую клавишу для выхода, ESC для отмены...");
-                    if (Console.ReadKey(true).Key == ConsoleKey.Escape) { Console.Clear(); continue; }
+        public void AddGroup(Group group)
+        {
+            Groups.Add(group);
+        }
+    }
 
-                    Console.WriteLine("\nЗавершение работы программы...");
-                    return;
-                default:
-                    Console.Clear();
-                    Console.WriteLine("Выбран некорректный пункт меню. Выберите значение от 1 до 8 или нуль!\nНажмите любую клавишу, чтобы вернуться в меню...");
-                    Console.ReadKey();
-                    continue;
+    class Trainer
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string[] DaysOfWeek { get; set; }
+        public List<Pool> Pools { get; set; }
+
+        public List<Group> Groups { get; set; }
+        public List<string> Timetable { get; set; }
+
+        public Trainer(int id, string name,
+                       int days)
+        {
+            Groups = new List<Group>();
+            Pools = new List<Pool>();
+            Timetable = new List<string>();
+
+            Id = id; Name = name;
+            foreach (var d in days.ToString())
+            {
+                int i = (int)(d - '0');
+                Timetable.Add( ((DayWeek)i).ToString() );
+            }
+        }
+
+        public int GetTotalRevenue(Pool pool)
+        {
+            return Groups.Where(g => g.Pool == pool).Sum(gs => gs.Subscription.Price * (gs.Participants.Count == 0 ? 0 : gs.Participants.Count));
+        }
+
+        public void AddGroup(Group group)
+        {
+            Groups.Add(group);
+            Groups.Single(x => x == group).Trainer = this;
+        }
+
+        public void getTimeTable()
+        {
+            Console.WriteLine("Дни недели:");
+            foreach (var t in Timetable)
+            {
+                Console.WriteLine($"{t} ");
             }
         }
     }
 
-    static List<Device> devices = new List<Device>();
-    static List<Subdivision> subdivisions = new List<Subdivision>();
-    static List<Muster> musters = new List<Muster>();
 
-    static void Muster()
+    class Group
     {
-        string str;
-        int m = 8;
-        string[] ms = new string[m];
-        Console.WriteLine("Введите данные поверки:");
-        Console.WriteLine("Ключ:");
-        str = Console.ReadLine() + ";";
-        Console.WriteLine("Организация:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Прибор:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Инвентарный №:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Дата следующей поверки (DD.MM.YY HH: MM: SS):");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Результат (Годен / Не годен):");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Дата поверки (DD.MM.YY HH: MM: SS):");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Стоимость:");
-        str += Console.ReadLine() + ";";
+        public int Id { get; set; }
+        public int Number { get; set; }
+        public string Category { get; set; } //beginners, teenagers, adults, athletes
+        public Subscription Subscription { get; set; } //foreign key to Subscription
+        public List<Participant> Participants { get; set; }
 
-        ms = str.Split(';');
-
-        musters.Add(new Muster(int.Parse(ms[0]), ms[1], ms[2], ms[3], DateTime.Parse(ms[4]), ms[5], DateTime.Parse(ms[6]), double.Parse(ms[7])));
-
-        StreamWriter Fileout = new StreamWriter("поверки.txt", false);
-        foreach (var muster in musters)
+        private Pool pool;
+        public Pool Pool
         {
-            str = ($"{muster.Key};{muster.Organization};{muster.Device};{muster.InventoryNum};{muster.NextDate};{muster.Result};{muster.DateOfInsp};{muster.CostOfInsp}");
-
-            Fileout.WriteLine(str);
+            get
+            {
+                return pool;
+            }
+            set
+            {
+                pool = value;
+                pool.AddGroup(this);
+            }
         }
-        Fileout.Close();
+        public Trainer Trainer { get; set; }
 
-        var deviceMuster = devices.FirstOrDefault(device => device.Name == ms[2]);
-        deviceMuster.Status = ms[5];
-        deviceMuster.DateOfInsp = DateTime.Parse(ms[6]);
-        Fileout = new StreamWriter("приборы.txt", false);
-        foreach (var device in devices)
+        public Group() => Participants = new List<Participant>();
+
+        public Group(int id, string category, Pool pool,
+                     Subscription subscriptionid)
         {
-            str = ($"{device.Key};{device.Name};{device.InventoryNum};{device.Profile};{device.Cost};{device.Status};{device.DateOfInsp}");
+            Participants = new List<Participant>();
 
-            Fileout.WriteLine(str);
+
+            Id = id; Category = category;
+            Subscription = subscriptionid;
+            this.pool = pool;
+            this.pool.AddGroup(this);
+
         }
-        Fileout.Close();
 
+        public void AddParticipant(Participant participant)
+        {
+            Participants.Add(participant);
+            Participants.Find(f => f == participant).Group = this;
+        }
     }
-    static void EditStatus(int key)
-    {
-        StreamWriter fileOut = new StreamWriter("приборы.txt", false);
-        string str;
-        bool deviceFound = false;
 
-        var deviceToUpdate = devices.FirstOrDefault(device => device.Key == key);
-        if (deviceToUpdate != null)
+    class Subscription
+    {
+        public int Id { get; set; }
+        public string Type { get; set; } //1 visit per week, 2 visits per week, etc.
+        public int NumberOfVisits { get; set; }
+        public int Price { get; set; }
+
+        public Subscription(int id, string type, int numofvisits, int price)
         {
-            Console.WriteLine("Прибор " + deviceToUpdate.Name + ". Текущий статус: " + deviceToUpdate.Status + "\nВыберите, какой новый статус установить и нажмите Enter:");
-            Console.WriteLine("1. Годен\n2. Не годен\n3. Списан\n4. На консервации\n5. На ремонте");
+            Id = id; Type = type; NumberOfVisits = numofvisits; Price = price;
+        }
+    }
+
+    class Participant
+    {
+        int Id { get; set; }
+        public string Name { get; set; }
+        public Subscription Subscription { get; set; }
+        public Pool Pool { get; set; }
+        public Group Group { get; set; }
+        public Trainer Trainer { get; set; }
+
+        public Participant(int id, string name, Pool pool, Subscription subscription)
+        {
+            Id = id;
+            Name = name; Subscription = subscription;
+            Pool = pool;
+        }
+    }
+
+        /*public static class Category
+        {
+            public static readonly string Beginers = "Начинающие";
+            public static readonly string Teenagers = "Подростки";
+            public static readonly string Adults = "Взрослые";
+            public static readonly string Athletes = "Спортсмены";
+        }*/
+
+
+    class Program
+    {
+        static List<Pool> pools = new List<Pool>();
+        static List<Trainer> trainers = new List<Trainer>();
+        static List<Group> groups = new List<Group>();
+        static List<Subscription> subscriptions = new List<Subscription>();
+
+        public static List<string> Category = new List<string>()
+        {
+            "Начинающие",
+            "Подростки",
+            "Взрослые",
+            "Спортсмены",
+        };
+
+        public enum DayWeek
+        {
+            Воскресенье = 1,
+            Понедельник,
+            Вторник,
+            Среда,
+            Четверг,
+            Пятница,
+            Суббота,
+        }
+
+/*        public enum DayWeek
+        {
+            Sunday = 1,
+            Monday,
+            Tuesday,
+            Wednesday,
+            Thursday,
+            Friday,
+            Saturday,
+        }*/
+
+        public static void AddParticipant(Participant participant)
+        {
+            try
+            {
+                groups.Where(g => g.Subscription == participant.Subscription).First().AddParticipant(participant);
+                //Console.WriteLine($"{participant.Name} - {participant.Group.Id} - {participant.Pool.Name}");
+            }
+            catch (Exception) { }
+        }
+
+        public static void AddGroup()
+        {
+
+            Group newgroup = new Group();
+            Console.WriteLine("Введите символ '*'отмены...");
+            //if (Console.ReadKey(true).KeyChar == '*') return;
+
+            Console.WriteLine("Бассейны: ");
+            foreach (var p in pools)
+            {
+                Console.WriteLine(p.Id + "-" + p.Name);
+            }
+            Console.WriteLine("Выберите Бассейн группы: ");
+            var id = int.Parse(Console.ReadLine());
+            newgroup.Pool = pools.Single(p => p.Id == id);
+            Console.Clear();
+
+            Console.WriteLine("Категории групп: ");
+            for (int i = 0; i < Category.Count; i++)
+            {
+                Console.WriteLine(i + "-" + Category[i]);
+            }
+            Console.WriteLine("Выберите категорию группы: ");
+            newgroup.Category = Category[int.Parse(Console.ReadLine())];
+            Console.Clear();
+
+            Console.WriteLine("Тренеры: ");
+            foreach (var t in trainers.Where(t => t.Pools.Contains(newgroup.Pool)))
+            {
+                Console.WriteLine(t.Id + "-" + t.Name);
+            }
+            Console.WriteLine("Выберите Тренера для группы: ");
+            id = int.Parse(Console.ReadLine());
+            newgroup.Trainer = trainers.Single(p => p.Id == id);
+            Console.Clear();
+
+            Console.WriteLine("Абонементы: ");
+            foreach (var s in subscriptions)
+            {
+                Console.WriteLine(s.Id + "-" + s.Type);
+            }
+            Console.WriteLine("Выберите Абонемент группы: ");
+            id = int.Parse(Console.ReadLine());
+            newgroup.Subscription = subscriptions.Single(p => p.Id == id);
+            newgroup.Id = groups.Last().Id + 1;
+
+            groups.Add(newgroup);
+            Console.WriteLine("Новая группа добавлена");
+        }
+
+        public static void DeleteGroup()
+        {
+            Console.WriteLine("Группы: ");
+            foreach (var g in groups)
+            {
+                Console.WriteLine(g.Id + " - " + g.Pool.Name + " - " + g.Trainer.Name);
+            }
+            Console.WriteLine("Выберите Бассейн группы: ");
+            var id = int.Parse(Console.ReadLine());
+            groups.Remove(groups.Single(p => p.Id == id));
+            Console.WriteLine("Группа удалена");
+            Console.Clear();
+        }
+
+        public static void LoadFiles()
+        {
+            //добавляем абонементы
+            string[] subscriptionsfile = File.ReadAllText("subscriptions.txt").Split('\n');
+            foreach (var subscription in subscriptionsfile)
+            {
+                int id = int.Parse(subscription.Split(';')[0]);
+                string type = subscription.Split(';')[1];
+                int numofvisits = int.Parse(subscription.Split(';')[2]);
+                int price = int.Parse(subscription.Split(';')[3]);
+                subscriptions.Add(new Subscription(id, type, numofvisits, price));
+            }
+            //добавляем бассейны
+            string[] poolsfile = File.ReadAllText("pools.txt").Split('\n');
+            foreach (var pool in poolsfile)
+            {
+                int id = int.Parse(pool.Split(';')[0]);
+                string name = pool.Split(';')[1];
+                string address = pool.Split(';')[2];
+                string type = pool.Split(';')[3];
+                pools.Add(new Pool(id, name, address, type));
+            }
+            //добавляем группы
+            string[] groupsfile = File.ReadAllText("groups.txt").Split('\n');
+            foreach (var group in groupsfile)
+            {
+                int id = int.Parse(group.Split(';')[0]);
+                string category = group.Split(';')[1];
+                Pool pool = pools[int.Parse(group.Split(';')[2])];
+                Subscription subscription = subscriptions[int.Parse(group.Split(';')[3])];
+                groups.Add(new Group(id, category, pool, subscription));
+
+
+                /*groups.Add(new Group(6, "Начинающие", pools[0], subscriptions[1]));
+                groups.Add(new Group(7, "Подростки", pools[1], subscriptions[2]));
+                groups.Add(new Group(8, "Взрослые", pools[2], subscriptions[0]));*/
+                /* trainers[2].AddGroup(groups[1]);
+                trainers[1].AddGroup(groups[2]);
+                trainers[0].AddGroup(groups[3]);
+
+                trainers[2].AddGroup(groups[3]);
+                trainers[1].AddGroup(groups[4]);
+                trainers[0].AddGroup(groups[5]);
+
+                trainers[2].AddGroup(groups[6]);
+                trainers[1].AddGroup(groups[7]);
+                trainers[0].AddGroup(groups[8]);*/
+            }
+            //добавляем участников групп
+            string[] participantsfile = File.ReadAllText("participants.txt").Split('\n');
+            //participantsfile.RemoveAt(participantsfile.Count-1);
+            foreach (var participant in participantsfile)
+            {
+                //Console.WriteLine(participantsfile.Count);
+                int id = int.Parse(participant.Split(';')[0]);
+                string name = participant.Split(';')[1];
+                Pool pool = pools[int.Parse(participant.Split(';')[2])];
+                Subscription subscription = subscriptions[int.Parse(participant.Split(';')[3])];
+                AddParticipant(new Participant(id, name, pool, subscription));
+            }
+            //добавляем тренеров
+            string[] trainersfile = File.ReadAllText("trainers.txt").Split('\n');
+            foreach (var trainer in trainersfile)
+            {
+                int id = int.Parse(trainer.Split(';')[0]);
+                string name = trainer.Split(';')[1];
+                int dayswoork = int.Parse(trainer.Split(';')[2]);
+                trainers.Add(new Trainer(id, name, dayswoork));
+            }
+
+            pools[0].AddTrainer(trainers[0]);
+            pools[0].AddTrainer(trainers[2]);
+            pools[1].AddTrainer(trainers[1]);
+            pools[1].AddTrainer(trainers[0]);
+            pools[2].AddTrainer(trainers[2]);
+            pools[2].AddTrainer(trainers[1]);
+
+        }
+
+        static void Main()
+        {
+            Console.WriteLine("Загрузка файлов");
+            LoadFiles();
+            Console.WriteLine("Загрузка завершена");
 
             while (true)
             {
-                switch (Console.ReadKey().KeyChar)
+                //Console.Clear();
+                Console.WriteLine("   Выберите № задачи\n"
+                + "1 - Сгруппировать тренеров по бассейнам.\n"
+                + "2 - Итоговая прибыль каждого тренера в каждом бассейн.\n"
+                + "3 - Тренеры, работающие с начинающим.\n"
+                + "4 - Список посетителей, занимающихся с заданным тренером.\n"
+                + "5 - Количество групп в каждом бассейне по дням недели.\n"
+                + "6 - Бассейн с максимальной выручкой.\n"
+                + "7 - Добавление группы в заданный бассейн.\n"
+                + "8 - Удаление группы в заданном бассейне.\n\n"
+                + "0 - Выход из программы");
+                var c = Console.ReadKey(true).KeyChar;
+                Console.Clear();
+                switch (c)
                 {
                     case '1':
-                        deviceToUpdate.Status = "Годен";
-                        break;
+                        {
+                            Console.WriteLine("Групировка тренеров по бассейнам:");
+                            pools.ForEach(p => { Console.WriteLine(p.Name + "\nТренеры:"); p.Trainers.ForEach(t => Console.WriteLine($"\t{t.Name}")); });
+                            Console.WriteLine();
+                            Console.ReadKey();
+                            continue;
+                        }
                     case '2':
-                        deviceToUpdate.Status = "Не годен";
-                        break;
+                        {
+                            Console.WriteLine("Итоговая прибыль каждого тренера в каждом бассейне:");
+                            trainers.ForEach(t => { Console.WriteLine(t.Name); t.Pools.ForEach(p => Console.WriteLine($"\t{p.Name}: {t.GetTotalRevenue(p)}")); });
+                            Console.ReadKey();
+                            continue;
+                        }
                     case '3':
-                        deviceToUpdate.Status = "Списан";
-                        break;
+                        {
+                            Console.WriteLine("Тренеры, работающие с начинающими:");
+                            trainers.Where(n => n.Groups.Where(g => g.Category == "Начинающие").Count() > 0).ToList().ForEach(tr => Console.WriteLine(tr.Name));
+                            Console.ReadKey();
+                            continue;
+                        }
                     case '4':
-                        deviceToUpdate.Status = "На консервации";
-                        break;
+                        {
+                            Console.WriteLine("Список посетителей, занимающихся с заданным тренером: ");
+                            trainers.ForEach(tr => Console.WriteLine(tr.Id + "-" + tr.Name));
+                            Console.WriteLine("Выберите номер тренера: ");
+                            int ti = int.Parse(Console.ReadLine());
+                            Console.WriteLine($"Посетители, занимающиеся у {trainers.Single(n => n.Id == ti).Name}");
+                            trainers.Single(n => n.Id == ti).Groups.ForEach(g => g.Participants.ForEach(par => Console.WriteLine(par.Name)));
+                            Console.ReadKey();
+                            continue;
+                        }
                     case '5':
-                        deviceToUpdate.Status = "На ремонте";
-                        break;
+                        {
+                            Console.WriteLine("Количество групп в каждом бассейне по дням недели:");
+                            
+                            foreach (var pool in pools)
+                            {
+                                Console.WriteLine(pool.Name+':');
+                                foreach (var day in Enum.GetNames(typeof(DayWeek)))
+                                {
+                                    try
+                                    {
+                                        Console.WriteLine($"\t{day}: {pool.Trainers.Single(t => t.Timetable.Contains(day)).Groups.Count}");
+                                    }
+                                    catch (Exception)
+                                    {
+                                        Console.WriteLine($"\t{day}:0");
+                                    }
+                                }
+                            }
+                            Console.ReadKey();
+                            continue;
+                        }
+                    case '6':
+                        {
+                            Console.WriteLine("Бассейн с максимальной выручкой: ");
+                            var m = pools.Select(p => new { p.Name, Sum = p.Groups.Sum(g => g.Subscription.Price * g.Participants.Count) }).OrderBy(n => n.Sum).First();
+                            Console.WriteLine($"{m.Name} - {m.Sum}");
+                            Console.ReadKey();
+                            continue;
+                        }
+                    case '7':
+                        {
+                            Console.WriteLine("Добавление группы в заданный бассейн");
+                            AddGroup();
+                            foreach (var item in groups)
+                            {
+                                Console.WriteLine($"{item.Id} - {item.Trainer.Name} - {item.Category} - {item.Pool.Name} - {item.Subscription.Type}");
+                            }
+                            Console.ReadKey();
+                            continue;
+                        }
+                    case '8':
+                        Console.WriteLine("Удаление группы в заданном бассейне");
+                        DeleteGroup();
+                        Console.ReadKey();
+                        continue;
+                    case '0':
+                        Console.WriteLine("Вы уверены, что хотите завершить работу программы?\nНажмите любую клавишу для выхода, ESC для отмены...");
+                        if (Console.ReadKey(true).Key == ConsoleKey.Escape) { Console.Clear(); continue; }
+
+                        Console.WriteLine("\nЗавершение работы программы...");
+                        return;
                     default:
-                        Console.WriteLine("Выберите пункт от 1 до 5!!!");
+                        Console.WriteLine("Выбран некорректный пункт меню. Выберите значение от 1 до 8 или нуль!\nНажмите любую клавишу, чтобы вернуться в меню...");
+                        Console.ReadKey();
                         continue;
                 }
-                break;
             }
-            deviceFound = true;
         }
-        foreach (var device in devices)
-        {
-            str = ($"{device.Key};{device.Name};{device.InventoryNum};{device.Profile};{device.Cost};{device.Status};{device.DateOfInsp}");
-            fileOut.WriteLine(str);
-        }
-
-        fileOut.Close();
-
-        if (!deviceFound) Console.WriteLine("Файл пуст или прибора с таким ключом нет.");
-    }
-    static void AddDevice()
-    {
-        string str;
-        int m = 7;
-        string[] ms = new string[m];
-        Console.WriteLine("Введите данные прибора:");
-        Console.WriteLine("Ключ:");
-        str = Console.ReadLine() + ";";
-        Console.WriteLine("Название:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Инвентарный №:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Профиль:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Стоимость:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Состояние:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Дата поверки (DD.MM.YY HH: MM: SS):");
-        str += Console.ReadLine() + ";";
-
-        ms = str.Split(';');
-
-        devices.Add(new Device(int.Parse(ms[0]), ms[1], ms[2], ms[3], double.Parse(ms[4]), ms[5], DateTime.Parse(ms[6])));
-
-        StreamWriter Fileout = new StreamWriter("приборы.txt", false);
-        foreach (var device in devices)
-        {
-            str = ($"{device.Key};{device.Name};{device.InventoryNum};{device.Profile};{device.Cost};{device.Status};{device.DateOfInsp}");
-
-            Fileout.WriteLine(str);
-        }
-        Fileout.Close();
-    }
-    // 111;Школа;Технология;14.05.2023;Молоток,Дрель //
-    static void AddSub()
-    {
-        string str;
-        int m = 4;
-        string[] ms = new string[m];
-        Console.WriteLine("Введите данные прибора:");
-        Console.WriteLine("Ключ:");
-        str = Console.ReadLine() + ";";
-        Console.WriteLine("Название:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Профиль:");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Текущая дата (DD.MM.YY HH: MM: SS):");
-        str += Console.ReadLine() + ";";
-        Console.WriteLine("Приборы через запятую (Линейки,карандаши):");
-        str += Console.ReadLine() + ";";
-
-        ms = str.Split(';');
-
-        subdivisions.Add(new Subdivision(int.Parse(ms[0]), ms[1], ms[2], DateTime.Parse(ms[3]), ms[4].Split(',').ToList()));
-
-        StreamWriter Fileout = new StreamWriter("подразделения.txt", false);
-        foreach (var subdivision in subdivisions)
-        {
-            str = ($"{subdivision.Key};{subdivision.Name};{subdivision.Profile};{subdivision.CurrentDate};");
-            foreach (var device in subdivision.Devices)
-            {
-                if (device != subdivision.Devices[subdivision.Devices.Count() - 1])
-                    str += device + ",";
-                else
-                    str += device;
-            }
-            Fileout.WriteLine(str);
-        }
-        Fileout.Close();
-    }
-    static bool DeleteDevice(int DelKey)
-    {
-        string str;
-        int removeDeviceNum = 0;
-        bool f = false;
-        foreach (var device in devices)
-        {
-            if (device.Key == DelKey)
-            {
-                f = true;
-                break;
-            }
-            removeDeviceNum++;
-        }
-        if (f)
-        {
-            devices.Remove(devices[removeDeviceNum]);
-            StreamWriter Fileout = new StreamWriter("приборы.txt", false);
-            foreach (var device in devices)
-            {
-                str = ($"{device.Key};{device.Name};{device.InventoryNum};{device.Profile};{device.Cost};{device.Status};{device.DateOfInsp}");
-
-                Fileout.WriteLine(str);
-            }
-            Fileout.Close();
-            return true;
-        }
-        return false;
-    }
-    static bool DeleteSub(int DelKey)
-    {
-        string str;
-        int removeSubNum = 0;
-        bool f = false;
-        foreach (var subdivision in subdivisions)
-        {
-            if (subdivision.Key == DelKey)
-            {
-                f = true;
-                break;
-            }
-            removeSubNum++;
-        }
-        if (f)
-        {
-            subdivisions.Remove(subdivisions[removeSubNum]);
-            StreamWriter Fileout = new StreamWriter("подразделения.txt", false);
-            foreach (var subdivision in subdivisions)
-            {
-                str = ($"{subdivision.Key};{subdivision.Name};{subdivision.Profile};{subdivision.CurrentDate}");
-
-                Fileout.WriteLine(str);
-            }
-            Fileout.Close();
-            return true;
-        }
-        return false;
     }
 }
